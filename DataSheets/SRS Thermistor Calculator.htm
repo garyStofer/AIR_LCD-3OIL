@@ -1,0 +1,174 @@
+<html><head>
+    <title>SRS Thermistor Calculator</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">   
+    
+    <!--[if IE]><script language="javascript" type="text/javascript" src="excanvas.min.js"></script><![endif]-->
+    <script language="javascript" type="text/javascript" src="SRS%20Thermistor%20Calculator_files/jquery.js"></script>
+    <script language="javascript" type="text/javascript" src="SRS%20Thermistor%20Calculator_files/jquery_002.js"></script>
+    <script language="javascript" type="text/javascript" src="SRS%20Thermistor%20Calculator_files/alex_cal_draw.js"></script> 
+ 
+            <style type="text/css">
+                <!--
+                body {line-height: 11pt;}
+                a { text-decoration:none }
+                a:hover{text-decoration:underline;}
+                -->
+		.boxpopup {
+		  font-size:13;		
+		  color:black; background:#FFFF99; 
+		  width:250px;		
+		  text-align:left; 		
+		  padding:4px 5px 4px 5px; 	
+		  font-weight:normal;	 
+		  border:1px solid gray; }
+		 #pdqbox {position:absolute; visibility:hidden; z-index:100;}
+             </style>
+   
+        <script id="source" language="javascript" type="text/javascript"> 
+        var R1;  var R2; var R3;  ar T1; var T2; var T3; var A; var B; var C;
+        var Beta; var R25; var Rth; var Fail; var Rmin; var Rmax; var datasets;
+        </script>
+</head>
+ 
+<body>
+<div id="container">   	    <div id="pdqbox" style="visibility: visible; display: none; left: 1139px; top: -887px;"></div>
+	    <script type="text/javascript">	    
+                OffsetX=-30;  
+                OffsetY=20;   
+                var old,skn,iex=(document.all),yyy=-1000;
+                var ns4=document.layers
+                var ns6=document.getElementById&&!document.all
+                var ie4=document.all
+                if (ns4) skn=document.pdqbox
+                else if (ns6) skn=document.getElementById("pdqbox").style
+                else if (ie4) skn=document.all.pdqbox.style
+                if (ns4) document.captureEvents(Event.MOUSEMOVE);
+                else{skn.visibility="visible"; skn.display="none"; }                
+                document.onmousemove=get_mouse;
+                function popup(msg){                
+                var content="<div class=boxpopup>"+msg+"</div>";
+                yyy=OffsetY;
+                if(ns4){skn.document.write(content);skn.document.close();skn.visibility="visible"}
+                if(ns6){document.getElementById("pdqbox").innerHTML=content;skn.display=''}
+                if(ie4){document.all("pdqbox").innerHTML=content;skn.display=''} }                
+                function get_mouse(e){                
+                var x=(ns4||ns6)?e.pageX:event.x+document.body.scrollLeft;
+                skn.left=x+OffsetX;
+                var y=(ns4||ns6)?e.pageY:event.y+document.body.scrollTop;
+                skn.top=y+yyy;}                
+                function remove_popup(){               
+                yyy=-1000;
+                if(ns4){skn.visibility="hidden";}
+                else if (ns6||ie4)
+                skn.display="none";}
+	    </script> 
+    <table style="background-color: rgb(210, 255, 255); border-color: rgb(240,240,240) " width="710," cellspacing="0" cellpadding="10" border="1">
+    <tbody><tr>
+       <td>
+            <form name="form1">            
+            <a href="http://www.thinksrs.com/" target="_blank">
+            <img style="border: 0px solid ; width: 40px; height: 28px;" title="Stanford Research Systems Inc" src="SRS%20Thermistor%20Calculator_files/SRS.bmp"></a>
+             <span style="color: rgb(10, 10, 10);font-family: Arial; font-size: 22; font-weight: normal;">Thermistor Calculator
+             <span style="font-style: italic; font-size: 12;">V1.1</span></span><br>             
+             <span style="font-family: inherit; font-style: nornmal; font-size: 14; color: rgb(120, 120, 0)">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for
+		<a target="_blank" title="LDC501 Laser Diode Controller" href="http://www.thinksrs.com/products/LDC501.htm">Laser Diode and TEC Controllers</a>		 
+             <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; by Stanford Research Systems Inc<br></span>
+		     
+	     <br>             
+             <span style="color: rgb(0, 0, 0); font-family: Arial; font-size: 12; font-weight: bold;">Please input resistance-temperature pairs:</span> <br>
+             <span style="font-family: Arial; font-size: 12; color: rgb(120,120,0); font-weight: normal;">
+                &nbsp;(Don't use the Enter key)</span>
+	     <span style="font-family: Times New Roman; font-size: 15; font-weight: normal">
+	     <div style="margin-left: 40px"> R (Ω)
+             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; T (°C)</div>                 
+            &nbsp; R1: <input value="25000" size="8" name="R1" onchange="Cal()" type="text"> &nbsp; T1: <input value="5" size="6" name="T1" onchange="Cal()" type="text"><br>    
+            &nbsp; R2: <input value="10000" size="8" name="R2" onchange="Cal()" type="text"> &nbsp; T2: <input value="25" size="6" name="T2" onchange="Cal()" type="text">
+                &nbsp;&nbsp;&nbsp;&nbsp;<a herf="/" alt="" onmouseover="popup('The data pairs, (R1,T1), (R2,T2) and (R3,T3), should be measured at different temperatures. For best results, choose points so that two are close to the extremes of the operating range, and a third is near the middle. When a number is input, click outside to start calculation. Never use the Enter key.')" ;="" onmouseout="remove_popup()"><img style="border: 0px solid ; width: 16px; height: 16px;" src="SRS%20Thermistor%20Calculator_files/Question.bmp"></a><br>            
+            &nbsp; R3: <input value="4000" size="8" name="R3" onchange="Cal()" type="text"> &nbsp; T3: <input value="45" size="6" name="T3" onchange="Cal()" type="text"><br><br>          
+            <span style="font-family: Arial; font-size: 13; font-weight: bold; color: rgb(0, 0, 0);">
+		Calculated Steinhart-Hart model coefficients:</span><br><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; A =
+            <input size="10" name="A" onchange="setA()" value="2.108508173" type="text"><span style="font-family: Arial; font-size: 15;"> e-3</span><br> 
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B =
+            <input size="10" name="B" onchange="setB()" value="0.7979204727" type="text"><span style="font-family: Arial;font-size: 15;"> e-4</span>	    	
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a herf="/" alt="" onmouseover="popup('The Steinhart-Hart coefficients are calculated from the three (R,T) points above. If you directly enter the coefficients here, the model will be changed to follow the new coefficients and ignore the (R,T) points. The curve and model calculator will always use the coefficients shown.')" ;="" onmouseout="remove_popup()"><img style="border: 0px solid ; width: 16px; height: 16px;" src="SRS%20Thermistor%20Calculator_files/Question.bmp"></a><br>	    
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; C =
+            <input size="10" name="C" onchange="setC()" value="6.535076315" type="text"><span style="font-family: Arial;font-size: 15;"> e-7</span>	    
+		&nbsp;<a herf="/" alt="" onmouseover="popup('  1/T = A + B·ln(R) + C·[ln(R)]<sup>3</sup><br>where: T is temperature in Kelvin.<br>             R is resistance in Ω.')" ;="" onmouseout="remove_popup()"><span style="font-family: Arial Narrow; font-size: 10; color: rgb(255,128,64);">See S-H model </span></a><br>            
+            <br><span style="font-family: Arial; font-size: 13; color: rgb(0,0,0); font-weight: bold;">
+                Calculated β model coefficients:</span><br>
+	    <span style="font-family: Arial; font-size: 12; color: rgb(120,120,0); font-weight: normal;">
+                    &nbsp;(R3 and T3 are not used)</span><br>             
+            <br>&nbsp;R(25°C) =
+            <input style="" size="9" name="R25" onchange="setR25()" value="10000.00" type="text"><span style="font-family: Arial;"> Ω</span>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a herf="/" alt="" onmouseover="popup('The β model coefficients are calculated from (R1,T1) and (R2,R2) above.  If you directly enter the coefficients here, the model will be changed to follow the new coefficients and ignore the (R,T) points. The curve and model calculator will always use the coefficients shown.')" ;="" onmouseout="remove_popup()"><img style="border: 0px solid ; width: 16px; height: 16px;" src="SRS%20Thermistor%20Calculator_files/Question.bmp"></a><br>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;β =
+            <input style="" size="9" name="Beta" onchange="setBeta()" value="3799.42" type="text"><span style="font-family: Arial;"> K</span>&nbsp;&nbsp;&nbsp;<a herf="/" alt="" onmouseover="popup('  R = R(25°C)·exp[β·(1/T - 1/298.15)] <br>where: T is temperature in Kelvin.<br>             R(25°C) is resistance at 25°C (in Ω).')" ;="" onmouseout="remove_popup()"><span style="font-family: Arial Narrow; font-size: 10; color: rgb(255,128,64);">See β model </span></a><br>
+             
+       </span></form></td>
+       <td>
+	    <form name="form2">
+	    <div id="placeholder" style="width: 350px; height: 300px; position: relative;"><canvas width="350" height="300"></canvas><canvas width="350" height="300" style="position: absolute; left: 0px; top: 0px;"></canvas><div class="tickLabels" style="font-size:smaller;color:#545454"><div style="position:absolute;top:284px;left:56px;width:43.75px;text-align:center" class="tickLabel">0</div><div style="position:absolute;top:284px;left:101px;width:43.75px;text-align:center" class="tickLabel">10</div><div style="position:absolute;top:284px;left:145px;width:43.75px;text-align:center" class="tickLabel">20</div><div style="position:absolute;top:284px;left:189px;width:43.75px;text-align:center" class="tickLabel">30</div><div style="position:absolute;top:284px;left:234px;width:43.75px;text-align:center" class="tickLabel">40</div><div style="position:absolute;top:284px;left:278px;width:43.75px;text-align:center" class="tickLabel">50</div><div style="position:absolute;top:269px;right:320px;width:30px;text-align:right" class="tickLabel">0</div><div style="position:absolute;top:215px;right:320px;width:30px;text-align:right" class="tickLabel">10000</div><div style="position:absolute;top:161px;right:320px;width:30px;text-align:right" class="tickLabel">20000</div><div style="position:absolute;top:108px;right:320px;width:30px;text-align:right" class="tickLabel">30000</div><div style="position:absolute;top:54px;right:320px;width:30px;text-align:right" class="tickLabel">40000</div><div style="position:absolute;top:0px;right:320px;width:30px;text-align:right" class="tickLabel">50000</div></div><div class="legend"><div style="position: absolute; width: 83px; height: 62px; top: 13px; right: 13px; background-color: rgb(210, 255, 255); opacity: 0.85;"> </div><table style="position:absolute;top:13px;right:13px;;font-size:smaller;color:#545454"><tbody><tr><td class="legendColorBox"><div style="border:1px solid #ccc;padding:1px"><div style="width:4px;height:0;border:5px solid rgb(237,194,64);overflow:hidden"></div></div></td><td class="legendLabel">β model</td></tr><tr><td class="legendColorBox"><div style="border:1px solid #ccc;padding:1px"><div style="width:4px;height:0;border:5px solid rgb(175,216,248);overflow:hidden"></div></div></td><td class="legendLabel">S-H model</td></tr><tr><td class="legendColorBox"><div style="border:1px solid #ccc;padding:1px"><div style="width:4px;height:0;border:5px solid rgb(203,75,75);overflow:hidden"></div></div></td><td class="legendLabel">Data</td></tr></tbody></table></div></div>       
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: rgb(120,120,0); font-size: 13; font-family: inherit;" id="choices"><input name="Beta" checked="checked" id="idBeta" type="checkbox"><label for="idBeta">β</label><input name="Steinhart" checked="checked" id="idSteinhart" type="checkbox"><label for="idSteinhart">S-H</label><input name="Orignal" checked="checked" id="idOrignal" type="checkbox"><label for="idOrignal">Data</label></span>
+            <span style="font-family: Arial; font-size: 12; color: rgb(120,120,0); font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Temperature(°C)</span>
+	    <script>	    
+		var dsets = // prepare initial data for check box and initial drawing
+		    {"Beta": {label: "&beta;", data: [25, 10000]},			
+		    "Steinhart": {label: "S-H", data: [20, 10000]},			
+		    "Orignal": {label: "Data",	data: [25, 10000]}}	
+		var choiceContainer = $("#choices");
+		$.each(dsets, function(key, val){choiceContainer.append('<input type="checkbox" name="' + key +
+					       '" checked="checked" id="id' + key + '">' +
+					       '<label for="id' + key + '">'
+						+ val.label + '</label>'); })	    
+            </script>
+	     <br><br><span style="font-family: Arial; font-size: 22; font-weight: normal; color: rgb(10, 10, 10);">
+		&nbsp;&nbsp;&nbsp;Model Calculator</span><br>
+	          <span style="font-family: Arial; font-size: 12; color: rgb(120,120,0); font-weight: normal;">
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(The coefficients shown on the left are used)</span><br>
+                <table border="0">
+                    <tbody><tr style="font-family: Arial; font-size: 15; font-weight: normal">
+                        <th align="right">R(Ω)&nbsp;&nbsp;&nbsp;&nbsp;</th>
+                        <th></th>
+                        <th align="left">&nbsp;&nbsp;&nbsp;T(°C)</th>
+                    </tr>
+                    <tr style="font-family: Arial; font-size: 14; font-weight: normal">
+                        <th align="right">
+                                &nbsp;&nbsp;<a herf="/" alt="" onmouseover="popup('Coefficients on the left are used in this model calculator. Changing resistance will result in two temperatures corresponding to Steinhart-Hart model and β model. R and T can be directly entered. Arrrow keys are for R entry only. If Steinhart-Hart curve is non-monotonic, T entry will lead to no result.')" ;="" onmouseout="remove_popup()"><img style="border: 0px solid ; width: 16px; height: 16px;" src="SRS%20Thermistor%20Calculator_files/Question.bmp"></a>
+                             &nbsp;
+                            &nbsp;&nbsp;<input value="10000" size="8" name="Rth" onkeyup="Model_Calculator();" onkeydown="if(event.keyCode==38) increaseR(); else if(event.keyCode==40) decreaseR(); " type="text"></th>
+                        <th>↔</th>
+                        <th align="left"><input size="7" name="Tsteinhart" onchange="TsteinhartToRth()" ;="" value="25.0000" type="text"><span style="font-family: Arial; "> S-H model</span></th>
+                    </tr>
+                    <tr style="font-family: Arial; font-size: 14; font-weight: normal">                                                  
+                        <th style="font-family: Arial; font-size: 12; color: rgb(120,120,0); font-weight: normal" align="right"> Use ↓ ↑ keys &nbsp;&nbsp;&nbsp;</th>
+                        <th></th>
+                        <th align="left"><input size="7" name="Tbeta" onchange="TbetaToRth()" ;="" value="25.0000" type="text"><span style="font-family: Arial;"> β model</span></th>
+                    </tr>
+                </tbody></table>  
+	    <script>
+	    window.open=Cal();	    
+	    </script>
+	    </form>
+       </td>
+    </tr>
+    </tbody></table>
+ 
+    
+<script type="text/javascript">
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script><script src="SRS%20Thermistor%20Calculator_files/ga.js" type="text/javascript"></script>
+<script type="text/javascript">
+try {
+var pageTracker = _gat._getTracker("UA-15806985-4");
+pageTracker._setDomainName(".thinksrs.com");
+pageTracker._trackPageview();
+} catch(err) {}</script>
+  
+    
+</div>
+
+
+
+</body></html>
