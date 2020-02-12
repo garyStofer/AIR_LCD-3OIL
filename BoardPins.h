@@ -19,7 +19,7 @@
 #define NTC1_ADC    1 // A1_PC1
 #define NTC2_ADC    2
 #define RPM_ADC 	3
-#define MP_ADC 		4
+#define FP_ADC 		4
 // ADC 5 used for Slave Select on SD card SPI interface
 #define SD_SS_PIN 19	// aka A5
 #define NTC3_ADC    6

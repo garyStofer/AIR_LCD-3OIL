@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="6.5.0">
+<eagle version="6.4">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -3652,6 +3652,8 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <part name="C9" library="SparkFun" deviceset="CAP" device="0805" value="0.1uF"/>
 <part name="IC3" library="1AA_Stofer" deviceset="TC10553.3V" device=""/>
 <part name="LCD-BL" library="1AA_Stofer" deviceset="PINHD-1X2" device=""/>
+<part name="C7" library="SparkFun" deviceset="CAP" device="0805" value="1uF"/>
+<part name="C8" library="SparkFun" deviceset="CAP" device="0805" value="1uF"/>
 </parts>
 <sheets>
 <sheet>
@@ -3670,7 +3672,6 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <text x="213.36" y="147.32" size="1.778" layer="95">D11/MOSI</text>
 <text x="-5.08" y="157.48" size="1.778" layer="91">Add C4,C5,C6,C7,C8  (air)</text>
 <text x="-7.62" y="127" size="1.778" layer="91">Or LP3990</text>
-<wire x1="180.34" y1="157.48" x2="200.66" y2="157.48" width="0.1524" layer="109"/>
 <wire x1="106.68" y1="121.92" x2="111.76" y2="121.92" width="0.1524" layer="109"/>
 <wire x1="111.76" y1="121.92" x2="111.76" y2="137.16" width="0.1524" layer="109"/>
 <wire x1="111.76" y1="137.16" x2="109.22" y2="137.16" width="0.1524" layer="109"/>
@@ -3687,9 +3688,13 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <text x="86.36" y="205.74" size="1.778" layer="97">Remove R7 , R8</text>
 <text x="213.36" y="182.88" size="1.778" layer="97">A3</text>
 <text x="109.22" y="124.46" size="1.778" layer="97" rot="R180">LED2 not connected </text>
-<text x="40.64" y="218.44" size="1.778" layer="97">Cuts and jumpers for use as 3xNTC oil temp with Manifold and RPM signals from Lightspeed ignition</text>
+<text x="40.64" y="218.44" size="1.778" layer="97">Cuts and jumpers for use as 3xNTC oil temp with  RPM signals from Lightspeed ignition and Fuelpressure from analog instrument sender</text>
 <text x="40.64" y="215.9" size="1.778" layer="97">As used in RV8 N427GS</text>
 <text x="-7.62" y="149.86" size="1.778" layer="97">IC3 not populated</text>
+<text x="213.36" y="157.48" size="1.778" layer="95">SS, D10</text>
+<text x="223.52" y="190.5" size="1.778" layer="94">( FP )</text>
+<text x="223.52" y="182.88" size="1.778" layer="94">( RPM )</text>
+<text x="223.52" y="157.48" size="1.778" layer="94">( external alarm beeper )</text>
 </plain>
 <instances>
 <instance part="SW1" gate="ENCODER" x="144.78" y="144.78" smashed="yes" rot="MR270"/>
@@ -3795,6 +3800,14 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 </instance>
 <instance part="IC3" gate="G$1" x="2.54" y="139.7"/>
 <instance part="LCD-BL" gate="G$1" x="162.56" y="109.22"/>
+<instance part="C7" gate="G$1" x="193.04" y="177.8" smashed="yes" rot="R180">
+<attribute name="NAME" x="194.056" y="177.927" size="1.778" layer="95"/>
+<attribute name="VALUE" x="199.136" y="173.609" size="1.778" layer="96"/>
+</instance>
+<instance part="C8" gate="G$1" x="182.88" y="177.8" smashed="yes" rot="R180">
+<attribute name="NAME" x="183.896" y="177.927" size="1.778" layer="95"/>
+<attribute name="VALUE" x="188.976" y="173.609" size="1.778" layer="96"/>
+</instance>
 </instances>
 <busses>
 </busses>
@@ -3905,6 +3918,7 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <pinref part="GND5" gate="1" pin="GND"/>
 <pinref part="JP4" gate="G$1" pin="6"/>
 <wire x1="200.66" y1="180.34" x2="200.66" y2="172.72" width="0.1524" layer="91"/>
+<wire x1="200.66" y1="172.72" x2="195.58" y2="172.72" width="0.1524" layer="91"/>
 </segment>
 <segment>
 <pinref part="GND6" gate="1" pin="GND"/>
@@ -3984,7 +3998,10 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <wire x1="109.22" y1="193.04" x2="167.64" y2="193.04" width="0.1524" layer="91"/>
 <wire x1="167.64" y1="193.04" x2="167.64" y2="190.5" width="0.1524" layer="91"/>
 <pinref part="JP4" gate="G$1" pin="2"/>
-<wire x1="167.64" y1="190.5" x2="200.66" y2="190.5" width="0.1524" layer="91"/>
+<wire x1="167.64" y1="190.5" x2="182.88" y2="190.5" width="0.1524" layer="91"/>
+<pinref part="C8" gate="G$1" pin="2"/>
+<wire x1="182.88" y1="190.5" x2="200.66" y2="190.5" width="0.1524" layer="91"/>
+<wire x1="182.88" y1="180.34" x2="182.88" y2="190.5" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$5" class="0">
@@ -4121,7 +4138,12 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <wire x1="116.84" y1="139.7" x2="116.84" y2="129.54" width="0.1524" layer="91"/>
 <pinref part="R2" gate="G$1" pin="2"/>
 <junction x="116.84" y="129.54"/>
-<wire x1="116.84" y1="129.54" x2="116.84" y2="121.92" width="0.1524" layer="91"/>
+<wire x1="116.84" y1="129.54" x2="116.84" y2="129.286" width="0.1524" layer="91"/>
+<pinref part="JP3" gate="G$1" pin="3"/>
+<wire x1="116.84" y1="129.286" x2="116.84" y2="121.92" width="0.1524" layer="91"/>
+<wire x1="200.66" y1="157.48" x2="120.904" y2="157.48" width="0.1524" layer="91"/>
+<wire x1="120.904" y1="157.48" x2="120.904" y2="129.286" width="0.1524" layer="91"/>
+<wire x1="120.904" y1="129.286" x2="116.84" y2="129.286" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$2" class="0">
@@ -4318,7 +4340,10 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <pinref part="U1" gate="G$1" pin="PC3(ADC3)"/>
 <label x="96.52" y="182.88" size="1.778" layer="95"/>
 <pinref part="JP4" gate="G$1" pin="5"/>
-<wire x1="93.98" y1="182.88" x2="200.66" y2="182.88" width="0.1524" layer="91"/>
+<wire x1="93.98" y1="182.88" x2="193.04" y2="182.88" width="0.1524" layer="91"/>
+<pinref part="C7" gate="G$1" pin="2"/>
+<wire x1="193.04" y1="182.88" x2="200.66" y2="182.88" width="0.1524" layer="91"/>
+<wire x1="193.04" y1="180.34" x2="193.04" y2="182.88" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="D2_PD2(INT0)" class="0">
@@ -4354,6 +4379,14 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <label x="182.88" y="160.02" size="1.778" layer="95"/>
 <pinref part="JP3" gate="G$1" pin="2"/>
 <wire x1="200.66" y1="160.02" x2="177.8" y2="160.02" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="N$3" class="0">
+<segment>
+<pinref part="C8" gate="G$1" pin="1"/>
+<pinref part="C7" gate="G$1" pin="1"/>
+<wire x1="182.88" y1="172.72" x2="193.04" y2="172.72" width="0.1524" layer="91"/>
+<wire x1="193.04" y1="172.72" x2="200.66" y2="172.72" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>
