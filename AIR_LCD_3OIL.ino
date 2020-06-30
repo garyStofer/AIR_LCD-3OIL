@@ -94,7 +94,7 @@ static byte DownChar[8] = {
 
 // There seems to be an error in the Lightspeed ignition analog outputs of about 5% short
 #define LGHTSPD_err_rpm  (1.05)
-//#define LGHTSPD_err_mp  (1.05)
+
 
 // Fuel pressure signal comes from resistive sensor connected to the analog guage (Van's )
 // voltages are as measured on actual sending unit. 
@@ -116,7 +116,7 @@ static byte DownChar[8] = {
 #define UpSym ( char(6))
 #define DownSym ( char(5))
 
-#define TIMEOUT_TIME 	10  // how long in seconds the non primary dislpay stays before reverting back to Oil temp (primary) 
+#define TIMEOUT_TIME 	10  // how long in seconds the secondary dislpay stays before reverting back to Oil temp (primary) 
 #define VOLT_HIGH_ALARM (14.8)
 #define VOLT_LOW_ALARM 	(11.0)
 #define OIL_TEMP_ALARM 230    // when the red light comes on, in deg F
