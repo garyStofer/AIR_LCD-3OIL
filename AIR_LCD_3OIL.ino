@@ -189,7 +189,7 @@ void setup()
   lcd.home ();                   // cursor 0,0
   lcd.print("OIL TEMP");
   lcd.setCursor ( 0, 1 );
-  lcd.print(" V 2.1  ");
+  lcd.print(" V 2.2  ");
 
 
 #ifdef WITH_SD_CARD
@@ -266,6 +266,7 @@ void loop()
 		
 	static int rpm_avg[AVG_SAMPLE] = {0};// RPM average array
 	static int rpm_total = 0;			 // RPM average running total
+  static int rpm_max =0;
 	static int fp_avg[AVG_SAMPLE] = {0}; // Fuelpressure average array
 	static int fp_total = 0;			 // FP average running total	
 	static char PrevEncCnt = EncoderCnt;  // used to indicate that user turned knob
@@ -356,6 +357,8 @@ void loop()
   
   rpm = rpm_total/AVG_SAMPLE * ADC_BW_2 * 10000.0; 	// scale according to Lightspeed is 1mv per 10 rev, i.e 0.3 V == 3000RPM
   rpm *= LGHTSPD_err_rpm;    // Error compensation for Lightspeed outputs.	  
+  if ( rpm > rpm_max )
+    rpm_max = rpm;
   
   
   Fuelp = fp_total/AVG_SAMPLE * ADC_BW_2; 	// in volts now
@@ -576,7 +579,7 @@ re_eval:
 		dataFile.print(',');
 		dataFile.print((short) rpm);
 		dataFile.print(",");
-		dataFile.print(Fuelp);
+		dataFile.println(Fuelp);
         dataFile.flush();
       }
 #endif 
@@ -596,15 +599,19 @@ re_eval:
 #endif
 	// at the end of the flight when motor is shut down, record total flight time
 	// this also stops recording after 10 munutes when testing on the ground
-	if ( minutes > 10  && rpm < 500)
+	if ( minutes > 10  && rpm < 500 && rpm_max >2000)
 	{
 #ifdef WITH_SD_CARD  		
 		if ( dataFile  )
 		{
 			dataFile.print( hours);
 			dataFile.print(':');
+      if (minutes%60 <10)
+        dataFile.print("0");
 			dataFile.print( minutes%60);
 			dataFile.print(':');
+      if (seconds%60 <10 )
+        dataFile.print("0");  
 			dataFile.print( seconds%60);
 			dataFile.println(",,,,,, -- END of Flight --");
 			dataFile.close();	// stop further recording  -- this causes datafile to evaluate to false
