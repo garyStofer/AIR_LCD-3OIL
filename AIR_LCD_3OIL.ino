@@ -5,11 +5,12 @@
 Primary funtion: 
 	A.)Measure oil temperature with 3 NTC resistors and display engine oil outlet and inlet temps and display the delta temp acrosss
 	the oil cooler. Indicate alarm situation if oil inlet temp comes close to reaching redline.
-	B.) Measure Battery voltage and indicate alarm when  low or high limits are exceeded.
-	C.) Measure Fuel pressure and indicate alarm when low or high limits are exceeded.
+	B.) Measure & display Battery voltage and indicate alarm when  low or high limits are exceeded.
+	C.) Measure & display Fuel pressure and indicate alarm when low or high limits are exceeded.
+	D.) Measure & display engine RPM as provided by Lightning ignition module (analog signal).
+	
 Secondary function:
-	Record the above readings every n seconds on a SD card.
-	Measure, display and record engine RPM as provided by Lightning ignition module (analog signal).
+	Store the above readings every n seconds onto a SD card.
 	Detect end of flight by checking RPM and record the duration of the flight. 
 
 */
@@ -17,9 +18,10 @@ Secondary function:
 
 
 // Note : This sketch needs to be compiled and run on a device with Optiboot since the watchdog doesn't work under the standard Bootloader.
-// NOTE : Before uploading sketch make sure that the Board type is set to OPTIBOOT on a 32 Pin CPU -- otherwise the programmer runs at the wronng baud rate
+// NOTE : Before uploading sketch make sure that the Board type is set to OPTIBOOT on a 32 Pin CPU -- otherwise the programmer runs
+// at the wronng baud rate
 
-// Last compiled and tested with Arduino IDE 1.6.6
+// Last compiled and tested with Arduino IDE 1.6.6 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  BUILD OPTIONS  see file build_opt.h   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 #include "build_opts.h"		// Controls build time features
@@ -89,7 +91,7 @@ static byte DownChar[8] = {
 #define ADC_BW_1 (ADC_REF_1 / 1024 )
 #define VBUS_ADC_BW  (ADC_REF_1 *(14+6.8)/(1024*6.8))    //adc bit weight for voltage divider 14.0K and 6.8k to gnd using 5V reference 
 
-#define ADC_REF_2 (1.1)
+#define ADC_REF_2 (1.1)		// built in bandgap diode
 #define ADC_BW_2  (ADC_REF_2/ 1024)
 
 // There seems to be an error in the Lightspeed ignition analog outputs of about 5% short
@@ -173,7 +175,7 @@ void setup()
 
   EncoderInit( Enc_A_PIN, Enc_B_PIN, Enc_PRESS_PIN );
 
-  wdt_enable(WDTO_8S);
+  wdt_enable(WDTO_8S);		// watchdog set for 8 seconds -- reboots if it hangs for longer
   
 	 
 #ifdef DEBUG
@@ -203,7 +205,7 @@ void setup()
     
     if (dataFile) 
     {
-      dataFile.println("Time, Vbus_volt, ExtIn, ExtOut, Oil_IN ,OilTUnits, RPM, FuelPr_psi");
+      dataFile.println("Time, Vbus_volt, ExtOut, ExtIn, Oil_IN ,OilTUnits, RPM, FuelPr_psi");
       dataFile.flush();
     }
 #ifdef DEBUG    
@@ -266,7 +268,7 @@ void loop()
 		
 	static int rpm_avg[AVG_SAMPLE] = {0};// RPM average array
 	static int rpm_total = 0;			 // RPM average running total
-  static int rpm_max =0;
+    static int rpm_max =0;
 	static int fp_avg[AVG_SAMPLE] = {0}; // Fuelpressure average array
 	static int fp_total = 0;			 // FP average running total	
 	static char PrevEncCnt = EncoderCnt;  // used to indicate that user turned knob
@@ -278,7 +280,7 @@ void loop()
 
  
   
-  wdt_reset();
+  wdt_reset();		// reboots should it hang somehow
 
 
   // anything to display ?
@@ -303,14 +305,14 @@ void loop()
 
  if (Vbus_Volt > VOLT_HIGH_ALARM  || Vbus_Volt < VOLT_LOW_ALARM )
   {
-		if ( !(REDledAlarm & 1<<MENU_V_Bus))
+		if ( !(REDledAlarm & 1<<MENU_V_Bus))		// switch display to the alarming reading
 			EncoderCnt = MENU_V_Bus;	
 		
         REDledAlarm |= 1<<MENU_V_Bus;
 
   }
   else
-	  REDledAlarm &= ~(1<<MENU_V_Bus);
+	  REDledAlarm &= ~(1<<MENU_V_Bus);			// clear the alarm and let the display revert to the default
 	  
  
   temp_1 = ntcRead(NTC1_R25C, NTC1_BETA, NTC1_ADC);
@@ -420,7 +422,7 @@ re_eval:
       if (timeout == 0 )			// So that the voltage display times out and switches back to primary oil temp
         timeout = seconds +TIMEOUT_TIME;  	
         
-    if (REDledAlarm & 1<<MENU_V_Bus && digitalRead(LED1_PIN) )
+    if (REDledAlarm & 1<<MENU_V_Bus && digitalRead(LED1_PIN) )	// blink the LCD in unison with the LED
 		lcd.noDisplay();
 	
       lcd.print("Voltage ");
@@ -446,7 +448,7 @@ re_eval:
 	  if (timeout == 0 )			
         timeout = seconds +TIMEOUT_TIME; 
 	
-	if (REDledAlarm & 1<<MENU_FP && digitalRead(LED1_PIN) )
+	if (REDledAlarm & 1<<MENU_FP && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
 		lcd.noDisplay();
 
 
@@ -497,7 +499,7 @@ re_eval:
         temp_3 = CtoF( temp_3);
       }
       
-	  if (REDledAlarm & 1<<MENU_OIL_NTC && digitalRead(LED1_PIN) )
+	  if (REDledAlarm & 1<<MENU_OIL_NTC && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
 		lcd.noDisplay();
       
 	  if (disp_Delta == false )
@@ -588,7 +590,7 @@ re_eval:
   // set the RED alarm led
 	  if (REDledAlarm)
 	  {
-	    if (digitalRead(LED1_PIN) )
+	    if (digitalRead(LED1_PIN) )		// make it blink
 	      digitalWrite( LED1_PIN, LOW);
 	    else
 		    digitalWrite( LED1_PIN, HIGH);
@@ -598,8 +600,8 @@ re_eval:
 		digitalWrite( LED1_PIN, LOW);
 #endif
 	// at the end of the flight when motor is shut down, record total flight time
-	// this also stops recording after 10 munutes when testing on the ground
-	if ( minutes > 10  && rpm < 500 && rpm_max >2000)
+	// Flight is indicted by RPM over 2400 RPM Simple runup will not trigger a flight situation
+	if ( minutes > 10  && rpm < 500 && rpm_max > 2400)
 	{
 #ifdef WITH_SD_CARD  		
 		if ( dataFile  )
@@ -613,7 +615,7 @@ re_eval:
       if (seconds%60 <10 )
         dataFile.print("0");  
 			dataFile.print( seconds%60);
-			dataFile.println(",,,,,, -- END of Flight --");
+			dataFile.println(",,,,,, -- END of Flight --\n");
 			dataFile.close();	// stop further recording  -- this causes datafile to evaluate to false
 		}
 #endif
