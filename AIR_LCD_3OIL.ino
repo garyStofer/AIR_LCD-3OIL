@@ -5,7 +5,7 @@
 Primary funtion: 
 	A.)Measure oil temperature with 3 NTC resistors and display engine oil outlet and inlet temps and display the delta temp acrosss
 	the oil cooler. Indicate alarm situation if oil inlet temp comes close to reaching redline.
-	B.) Measure & display Battery voltage and indicate alarm when  low or high limits are exceeded.
+	B.) Measure & display Oil Pressure and indicate alarm when low limit is exceeded.
 	C.) Measure & display Fuel pressure and indicate alarm when low or high limits are exceeded.
 	D.) Measure & display engine RPM as provided by Lightning ignition module (analog signal).
 	
@@ -86,27 +86,21 @@ static byte DownChar[8] = {
   0B00100,
   0B00000
 };
-//#define ADC_REF_1 (5.0)
-#define ADC_REF_1 (4.95)  // measured on individual baord -- This is the 5V regulator
-#define ADC_BW_1 (ADC_REF_1 / 1024 )
-#define VBUS_ADC_BW  (ADC_REF_1 *(14+6.8)/(1024*6.8))    //adc bit weight for voltage divider 14.0K and 6.8k to gnd using 5V reference 
+#define ADC_REF_0 (5.0)
+#define ADC_BW_0 (ADC_REF_0 / 1024 ) // for ratiometric readings
 
-#define ADC_REF_2 (1.1)		// built in bandgap diode
+#define ADC_REF_1 (4.95)  // measured on individual baord -- This is the 5V regulator -- for absolute readings
+#define ADC_BW_1 (ADC_REF_1 / 1024 )
+
+#define ADC_REF_2 (1.1)		// built in bandgap diode -- used for RPM reading only
 #define ADC_BW_2  (ADC_REF_2/ 1024)
 
 // There seems to be an error in the Lightspeed ignition analog outputs of about 5% short
 #define LGHTSPD_err_rpm  (1.05)
 
-
-// Fuel pressure signal comes from resistive sensor connected to the analog guage (Van's )
-// voltages are as measured on actual sending unit. 
-// Calibrated with external instrument and curve fitted  via EXCEL  see  file .xls
-#define FuelPressureV_0 	(0.702)	// offset
-#define FuelPressureSlope   (-44.795)
+#define OP_ADC  VBUS_ADC		// Vbus ADC used for OilPressure input -- 
 
 
-#define FuelP_HIGH_Alarm (8.0)
-#define FuelP_LOW_Alarm	(3.0)
 
 #define UPDATE_PER 500   // in ms second, this is the measure interval and also the LCD update interval
 
@@ -118,9 +112,10 @@ static byte DownChar[8] = {
 #define UpSym ( char(6))
 #define DownSym ( char(5))
 
-#define TIMEOUT_TIME 	10  // how long in seconds the secondary dislpay stays before reverting back to Oil temp (primary) 
-#define VOLT_HIGH_ALARM (14.8)
-#define VOLT_LOW_ALARM 	(11.0)
+#define TIMEOUT_TIME 	60  // how long in seconds the secondary dislpay stays before reverting back to Oil temp (primary) 
+#define FuelP_HIGH_Alarm (7.0)
+#define FuelP_LOW_Alarm	(2.4)
+#define OilP_LOW_Alarm (40)
 #define OIL_TEMP_ALARM 230    // when the red light comes on, in deg F
 #define TrendTime 40          // trend window in seconds
 #define TrendHysteresis 4     // in 1/10 deg C makes a hysteresis for the temp trend check, applies + and - , i.e 10 is +- 1 degree 
@@ -129,8 +124,8 @@ enum Displays {
   DISPLAY_BEGIN =0,
   MENU_OIL_NTC,
   MENU_TIME,
-  MENU_V_Bus,
   MENU_RPM,
+  MENU_OP,
   MENU_FP,
   DISP_END        // this must be the last entry
 };
@@ -191,7 +186,7 @@ void setup()
   lcd.home ();                   // cursor 0,0
   lcd.print("OIL TEMP");
   lcd.setCursor ( 0, 1 );
-  lcd.print(" V 2.2  ");
+  lcd.print(" V 2.5  ");
 
 
 #ifdef WITH_SD_CARD
@@ -205,7 +200,7 @@ void setup()
     
     if (dataFile) 
     {
-      dataFile.println("Time, Vbus_volt, ExtOut, ExtIn, Oil_IN ,OilTUnits, RPM, FuelPr_psi");
+      dataFile.println("Time, OilPr_psi, ExtOut, ExtIn, Oil_IN ,OilTUnits, RPM, FuelPr_psi");
       dataFile.flush();
     }
 #ifdef DEBUG    
@@ -258,19 +253,21 @@ void lcdPrintUnits(char ln, char Sym, char * units)
 // The Arduino IDE loop function -- Called contineously
 void loop()
 {
-	float Vbus_Volt;					 // The 12v Bus voltage
+
+	float Oilp;	// the Oil pressure 
 	float rpm;	// The RPM result
 	float Fuelp;	// The fuelpressure result
 	short rounded;
 	float temp_1, temp_2, temp_3;
 	char const *  units = "";
 	unsigned short hours, seconds, minutes;		// uptime
+	unsigned short adc_val;
 		
 	static int rpm_avg[AVG_SAMPLE] = {0};// RPM average array
 	static int rpm_total = 0;			 // RPM average running total
-    static int rpm_max =0;
-	static int fp_avg[AVG_SAMPLE] = {0}; // Fuelpressure average array
-	static int fp_total = 0;			 // FP average running total	
+	static int rpm_max =0;
+
+
 	static char PrevEncCnt = EncoderCnt;  // used to indicate that user turned knob
 	static unsigned char PrevShortPressCnt = 0;
 	static char p;
@@ -300,20 +297,7 @@ void loop()
 	timeout = 0;
   }
  
- // read all the analog inputs 
-  Vbus_Volt = analogRead(VBUS_ADC) *VBUS_ADC_BW;
-
- if (Vbus_Volt > VOLT_HIGH_ALARM  || Vbus_Volt < VOLT_LOW_ALARM )
-  {
-		if ( !(REDledAlarm & 1<<MENU_V_Bus))		// switch display to the alarming reading
-			EncoderCnt = MENU_V_Bus;	
-		
-        REDledAlarm |= 1<<MENU_V_Bus;
-
-  }
-  else
-	  REDledAlarm &= ~(1<<MENU_V_Bus);			// clear the alarm and let the display revert to the default
-	  
+ // read all the analog inputs on 5V reference 
  
   temp_1 = ntcRead(NTC1_R25C, NTC1_BETA, NTC1_ADC);
   temp_2 = ntcRead(NTC2_R25C, NTC2_BETA, NTC2_ADC);
@@ -321,7 +305,7 @@ void loop()
   
    if (OIL_TEMP_ALARM < CtoF( temp_3))		// using the temp sensor thats inside the oil stream upfront of the engine
    {	   
-	    if (! (REDledAlarm & (1<<MENU_OIL_NTC)))	// first time switch disply to this
+	    if (! (REDledAlarm & (1<<MENU_OIL_NTC)))	// first time, switch disply to this
 			EncoderCnt = MENU_OIL_NTC;
 			
          REDledAlarm |= 1<<MENU_OIL_NTC;
@@ -329,7 +313,20 @@ void loop()
    }
    else
 	    REDledAlarm &= ~(1<<MENU_OIL_NTC);
-	   
+
+  
+    // Fuel pressure from Solidstate sensor -- 0-15psi 0.5-4.5V -- Already averaged by sensor
+      adc_val = analogRead(FP_ADC);
+      Fuelp = adc_val * ADC_BW_0;
+      // sensor has 0.5V offest at 0 PSI and reads 4.5V at 15 PSI
+      Fuelp = (Fuelp -0.64)*15.0/4.0;
+	  
+	 // Oil pressure from Solidstate sensor -- 0-100 psi 0.5-4.5V -- Already averaged by sensor
+      adc_val = analogRead(OP_ADC);
+	  Oilp= adc_val * ADC_BW_0;
+      // sensor has ~0.5V offest at 0 PSI and reads ~4.5V at 100 PSI
+      Oilp = (Oilp -0.46)*100/3.95; 
+	  
  
 	/* Note on analogReference function
 		
@@ -345,35 +342,29 @@ void loop()
   analogRead(0);	// empty read just to set the Reference so that cap can charge 
   delay(25);		// time to charge vref cap -- at least 4 ms
 
-  fp_total -= fp_avg[avg.ndx];
-  fp_avg[avg.ndx] = analogRead(FP_ADC);
-  fp_total += fp_avg[avg.ndx];
-  
   rpm_total -= rpm_avg[avg.ndx];
   rpm_avg[avg.ndx] = analogRead(RPM_ADC);
   rpm_total += rpm_avg[avg.ndx];
   
   avg.ndx++;
   
-
-  
   rpm = rpm_total/AVG_SAMPLE * ADC_BW_2 * 10000.0; 	// scale according to Lightspeed is 1mv per 10 rev, i.e 0.3 V == 3000RPM
   rpm *= LGHTSPD_err_rpm;    // Error compensation for Lightspeed outputs.	  
   if ( rpm > rpm_max )
     rpm_max = rpm;
   
-  
-  Fuelp = fp_total/AVG_SAMPLE * ADC_BW_2; 	// in volts now
-    
-  if ( Fuelp <= 0.400 ||  Fuelp >= 0.660)	// sensor is not connected properly or it failed.
-	Fuelp= -99.0;		
-  else
-  { 
-	Fuelp = Fuelp - FuelPressureV_0;
-	Fuelp *=  FuelPressureSlope;
+  if (Oilp < OilP_LOW_Alarm )
+  {
+	  if (!(REDledAlarm & (1<<MENU_OP)))
+		EncoderCnt = MENU_OP;
+	
+	  REDledAlarm |= 1<<MENU_OP;
+      
   }
- 
-  // highest priority if multiple alarms come at the same time 
+  else 
+	  REDledAlarm &= ~(1<<MENU_OP);
+  
+   // FP alarm last so that it has highest priority if multiple alarms come at the same time 
   if (Fuelp > FuelP_HIGH_Alarm  || Fuelp < FuelP_LOW_Alarm )
   {
 	  if (!(REDledAlarm & (1<<MENU_FP)))
@@ -384,6 +375,8 @@ void loop()
   }
   else 
 	  REDledAlarm &= ~(1<<MENU_FP);
+  
+
 
   
   // switch back to 5v ref for next time around
@@ -418,6 +411,7 @@ re_eval:
   switch (EncoderCnt)		// for display items
   {
 
+#ifdef jhjvjjhj	  
     case MENU_V_Bus:
       if (timeout == 0 )			// So that the voltage display times out and switches back to primary oil temp
         timeout = seconds +TIMEOUT_TIME;  	
@@ -432,30 +426,44 @@ re_eval:
       
    
       break;
-
+#endif
     case MENU_RPM:
 	  if (timeout == 0 )			
         timeout = seconds +TIMEOUT_TIME;  
 	
       lcd.print("  RPM   ");
       lcd.setCursor ( 0, LINE2 );
-	  lcd.print("  ");
+	    lcd.print("  ");
       lcd.print( (short) rpm );
       lcd.print("     ");
       break;
+	  
+	case  MENU_OP:
+	  if (timeout == 0 )			
+        timeout = seconds +TIMEOUT_TIME; 
+	
+	  if (REDledAlarm & 1<<MENU_OP && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
+		  lcd.noDisplay();
+
+
+	  lcd.print("Oil  psi");
+      lcd.setCursor ( 0, LINE2 );
+      lcd.print( Oilp );
+      lcd.print("       ");
+      break;  
 	  
 	case  MENU_FP:
 	  if (timeout == 0 )			
         timeout = seconds +TIMEOUT_TIME; 
 	
-	if (REDledAlarm & 1<<MENU_FP && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
-		lcd.noDisplay();
+	  if (REDledAlarm & 1<<MENU_FP && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
+		  lcd.noDisplay();
 
 
-	  lcd.print("FuelPr  ");
+	   lcd.print("Fuel psi");
       lcd.setCursor ( 0, LINE2 );
       lcd.print( Fuelp );
-      lcd.print(" PSI  ");
+      lcd.print("       ");
       break;
 
 
@@ -528,7 +536,7 @@ re_eval:
 	case MENU_TIME:
 	{
 		if (timeout == 0 )
-			timeout = seconds + 10;
+			timeout = seconds + TIMEOUT_TIME;
 		
 		lcd.print("Up Time ");
 		lcd.setCursor ( 0, LINE2 );
@@ -569,8 +577,8 @@ re_eval:
 		dataFile.print(':');
 		dataFile.print( seconds%60);
 		dataFile.print(',');
-		dataFile.print(Vbus_Volt);
-		dataFile.print("V,");
+		dataFile.print(Oilp);
+		dataFile.print(",");
         dataFile.print(temp_1);
         dataFile.print(',');
         dataFile.print (temp_2);
@@ -588,12 +596,12 @@ re_eval:
   
 #ifdef ALARMS_A
   // set the RED alarm led
-	  if (REDledAlarm)
+	  if (REDledAlarm &&  rpm > 1000 )
 	  {
 	    if (digitalRead(LED1_PIN) )		// make it blink
 	      digitalWrite( LED1_PIN, LOW);
 	    else
-		    digitalWrite( LED1_PIN, HIGH);
+		  digitalWrite( LED1_PIN, HIGH);
 
 	  }
 	  else
@@ -601,19 +609,21 @@ re_eval:
 #endif
 	// at the end of the flight when motor is shut down, record total flight time
 	// Flight is indicted by RPM over 2400 RPM Simple runup will not trigger a flight situation
-	if ( minutes > 10  && rpm < 500 && rpm_max > 2400)
+	if ( minutes > 10  && rpm < 1000 && rpm_max > 2400)
 	{
 #ifdef WITH_SD_CARD  		
 		if ( dataFile  )
 		{
 			dataFile.print( hours);
 			dataFile.print(':');
-      if (minutes%60 <10)
-        dataFile.print("0");
+			if (minutes%60 <10)
+				dataFile.print("0");
+	
 			dataFile.print( minutes%60);
 			dataFile.print(':');
-      if (seconds%60 <10 )
-        dataFile.print("0");  
+			if (seconds%60 <10 )
+				dataFile.print("0");  
+			
 			dataFile.print( seconds%60);
 			dataFile.println(",,,,,, -- END of Flight --\n");
 			dataFile.close();	// stop further recording  -- this causes datafile to evaluate to false

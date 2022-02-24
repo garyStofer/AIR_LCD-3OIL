@@ -9801,6 +9801,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <text x="187.452" y="194.056" size="1.778" layer="97">main NTC</text>
 <text x="181.864" y="186.182" size="1.778" layer="97">2nd in NTC</text>
 <text x="111.76" y="193.04" size="1.778" layer="97">2nd NTC out</text>
+<text x="228.6" y="223.52" size="1.778" layer="95">FP 5V , pin 9, FP-Gnd 1 </text>
 </plain>
 <instances>
 <instance part="JP4" gate="G$1" x="63.5" y="195.58" rot="MR180"/>
@@ -9986,6 +9987,11 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <wire x1="160.02" y1="210.82" x2="160.02" y2="170.18" width="0.1524" layer="91"/>
 <wire x1="149.86" y1="210.82" x2="160.02" y2="210.82" width="0.1524" layer="91"/>
 <junction x="160.02" y="210.82"/>
+<pinref part="X1" gate="-1" pin="9"/>
+<wire x1="116.84" y1="231.14" x2="116.84" y2="243.84" width="0.1524" layer="91"/>
+<wire x1="116.84" y1="243.84" x2="177.8" y2="243.84" width="0.1524" layer="91"/>
+<wire x1="177.8" y1="243.84" x2="177.8" y2="210.82" width="0.1524" layer="91"/>
+<wire x1="177.8" y1="210.82" x2="170.18" y2="210.82" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$2" class="0">
