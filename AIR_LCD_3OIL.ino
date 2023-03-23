@@ -1,4 +1,3 @@
-
 /*
 	Multi function display device used in experimental aircraft to measure, display and alarm for situations when readings exceed built in limits.
 
@@ -25,7 +24,7 @@ Secondary function:
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  BUILD OPTIONS  see file build_opt.h   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 #include "build_opts.h"		// Controls build time features
-
+#define VERSION " V 2.6  "
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
 #ifdef WITH_SD_CARD
@@ -98,10 +97,6 @@ static byte DownChar[8] = {
 // There seems to be an error in the Lightspeed ignition analog outputs of about 5% short
 #define LGHTSPD_err_rpm  (1.05)
 
-#define OP_ADC  VBUS_ADC		// Vbus ADC used for OilPressure input -- 
-
-
-
 #define UPDATE_PER 500   // in ms second, this is the measure interval and also the LCD update interval
 
 // units for display
@@ -113,9 +108,9 @@ static byte DownChar[8] = {
 #define DownSym ( char(5))
 
 #define TIMEOUT_TIME 	60  // how long in seconds the secondary dislpay stays before reverting back to Oil temp (primary) 
-#define FuelP_HIGH_Alarm (7.0)
-#define FuelP_LOW_Alarm	(2.4)
-#define OilP_LOW_Alarm (40)
+#define FuelP_HIGH_Alarm (7.0)	// in psi
+#define FuelP_LOW_Alarm	(2.4)		// in psi
+#define OilP_LOW_Alarm (40)			// in psi
 #define OIL_TEMP_ALARM 230    // when the red light comes on, in deg F
 #define TrendTime 40          // trend window in seconds
 #define TrendHysteresis 4     // in 1/10 deg C makes a hysteresis for the temp trend check, applies + and - , i.e 10 is +- 1 degree 
@@ -125,8 +120,8 @@ enum Displays {
   MENU_OIL_NTC,
   MENU_TIME,
   MENU_RPM,
-  MENU_OP,
-  MENU_FP,
+  MENU_OilP,
+  MENU_FuelP,
   DISP_END        // this must be the last entry
 };
 
@@ -186,7 +181,7 @@ void setup()
   lcd.home ();                   // cursor 0,0
   lcd.print("OIL TEMP");
   lcd.setCursor ( 0, 1 );
-  lcd.print(" V 2.5  ");
+  lcd.print(VERSION);
 
 
 #ifdef WITH_SD_CARD
@@ -196,11 +191,14 @@ void setup()
 
   if (  SD.begin(SD_SS_PIN) ) // the Slave Select pin is shared with SCL from I2C, therefore SD and I2C are mutually exclusive
   {
-	dataFile = SD.open("N427GS.txt", FILE_WRITE);
+		dataFile = SD.open( N_NUMBER".csv", FILE_WRITE);
     
     if (dataFile) 
     {
-      dataFile.println("Time, OilPr_psi, ExtOut, ExtIn, Oil_IN ,OilTUnits, RPM, FuelPr_psi");
+			dataFile.print("\nStart up, Version: ");
+			dataFile.println(VERSION);
+      dataFile.println("Time\tRPM\tFuelP\tOilP\tExtOut\tExtIn\tOil_IN\tUnits");
+			
       dataFile.flush();
     }
 #ifdef DEBUG    
@@ -230,24 +228,24 @@ void setup()
 // checks if a Long button press was issued and switches the EEprom and Metric display global.
 void CheckToggleMetric( void )  
 {
-      if (LongPressCnt)   // toggle between imperial and metric display
-      {
-        if ( MetricDisplay != 0 )
-          MetricDisplay = 0;
-        else
-          MetricDisplay = 1;
+	if (LongPressCnt)   // toggle between imperial and metric display for temps
+	{
+		if ( MetricDisplay != 0 )
+			MetricDisplay = 0;
+		else
+			MetricDisplay = 1;
 
-        EEPROM.put( 0, MetricDisplay);
-        LongPressCnt = 0;
-      }
+		EEPROM.put( 0, MetricDisplay);
+		LongPressCnt = 0;
+	}
 }
 
 void lcdPrintUnits(char ln, char Sym, char * units)
 {
-        lcd.print("      ");     
-        lcd.setCursor ( 6, ln );
-        lcd.print(Sym); 
-        lcd.print(units);  
+	lcd.print("      ");     
+	lcd.setCursor ( 6, ln );
+	lcd.print(Sym); 
+	lcd.print(units);  
 }
 
 // The Arduino IDE loop function -- Called contineously
@@ -258,11 +256,13 @@ void loop()
 	float rpm;	// The RPM result
 	float Fuelp;	// The fuelpressure result
 	short rounded;
-	float temp_1, temp_2, temp_3;
-	char const *  units = "";
+	float temp_1C, temp_2C, temp_3C;	// temps in deg C
+	float t_1, t_2, t_3;	// temps for display -- F or C
+	char const *  units;
+
 	unsigned short hours, seconds, minutes;		// uptime
 	unsigned short adc_val;
-		
+
 	static int rpm_avg[AVG_SAMPLE] = {0};// RPM average array
 	static int rpm_total = 0;			 // RPM average running total
 	static int rpm_max =0;
@@ -275,14 +275,11 @@ void loop()
 	static unsigned long t = millis();
 	static unsigned timeout =0;
 
- 
-  
-  wdt_reset();		// reboots should it hang somehow
+	wdt_reset();		// reboots should it hang somehow
 
-
-  // anything to display ?
-  if ( t + UPDATE_PER > millis() && EncoderCnt == PrevEncCnt && ShortPressCnt == PrevShortPressCnt)
-    return;
+	// anything to display ?
+	if ( t + UPDATE_PER > millis() && EncoderCnt == PrevEncCnt && ShortPressCnt == PrevShortPressCnt)
+		return;
 
   
   // update every n msec
@@ -293,39 +290,55 @@ void loop()
   
   if (timeout != 0 && seconds > timeout ) 
   {
-	EncoderCnt= MENU_OIL_NTC; // default back to primary oil temp display after timeout
-	timeout = 0;
+		EncoderCnt= MENU_OIL_NTC; // default back to primary oil temp display after timeout
+		timeout = 0;
   }
  
  // read all the analog inputs on 5V reference 
  
-  temp_1 = ntcRead(NTC1_R25C, NTC1_BETA, NTC1_ADC);
-  temp_2 = ntcRead(NTC2_R25C, NTC2_BETA, NTC2_ADC);
-  temp_3 = ntcRead(NTC3_R25C, NTC3_BETA, NTC3_ADC);
+  temp_1C = ntcRead(NTC1_R25C, NTC1_BETA, NTC1_ADC); 
+  temp_2C = ntcRead(NTC2_R25C, NTC2_BETA, NTC2_ADC);
+  temp_3C = ntcRead(NTC3_R25C, NTC3_BETA, NTC3_ADC);
+	
+  if (MetricDisplay)
+  {
+		units = CEL;
+		t_1 = temp_1C;
+		t_2 = temp_2C;
+		t_3 =temp_3C;
+  }
+  else
+  {
+		units = FAR;
+		t_1 = CtoF( temp_1C);
+		t_2 = CtoF( temp_2C);
+		t_3 = CtoF( temp_3C);
+  }
   
-   if (OIL_TEMP_ALARM < CtoF( temp_3))		// using the temp sensor thats inside the oil stream upfront of the engine
-   {	   
-	    if (! (REDledAlarm & (1<<MENU_OIL_NTC)))	// first time, switch disply to this
+	if (OIL_TEMP_ALARM < CtoF( temp_3C))		// using the temp sensor thats inside the oil stream upfront of the engine
+	{	   
+		if (! (REDledAlarm & (1<<MENU_OIL_NTC)))	// first time, switch disply to this
 			EncoderCnt = MENU_OIL_NTC;
-			
-         REDledAlarm |= 1<<MENU_OIL_NTC;
-		 
-   }
-   else
-	    REDledAlarm &= ~(1<<MENU_OIL_NTC);
+		
+		REDledAlarm |= 1<<MENU_OIL_NTC;
+	}
+	else
+		REDledAlarm &= ~(1<<MENU_OIL_NTC);
 
   
-    // Fuel pressure from Solidstate sensor -- 0-15psi 0.5-4.5V -- Already averaged by sensor
-      adc_val = analogRead(FP_ADC);
-      Fuelp = adc_val * ADC_BW_0;
-      // sensor has 0.5V offest at 0 PSI and reads 4.5V at 15 PSI
-      Fuelp = (Fuelp -0.64)*15.0/4.0;
+	// Fuel pressure from Solidstate sensor -- 0-15psi 0.5-4.5V -- Already averaged by sensor
+	adc_val = analogRead(FP_ADC);
+	Fuelp = adc_val * ADC_BW_0;
+	
+	// sensor has 0.5V offest at 0 PSI and reads 4.5V at 15 PSI
+	Fuelp = (Fuelp -0.64)*15.0/4.0;
 	  
 	 // Oil pressure from Solidstate sensor -- 0-100 psi 0.5-4.5V -- Already averaged by sensor
-      adc_val = analogRead(OP_ADC);
-	  Oilp= adc_val * ADC_BW_0;
-      // sensor has ~0.5V offest at 0 PSI and reads ~4.5V at 100 PSI
-      Oilp = (Oilp -0.46)*100/3.95; 
+  adc_val = analogRead(OP_ADC);
+	Oilp= adc_val * ADC_BW_0;
+	
+	// sensor has ~0.5V offest at 0 PSI and reads ~4.5V at 100 PSI
+	Oilp = (Oilp -0.46)*100/3.95; 
 	  
  
 	/* Note on analogReference function
@@ -350,34 +363,32 @@ void loop()
   
   rpm = rpm_total/AVG_SAMPLE * ADC_BW_2 * 10000.0; 	// scale according to Lightspeed is 1mv per 10 rev, i.e 0.3 V == 3000RPM
   rpm *= LGHTSPD_err_rpm;    // Error compensation for Lightspeed outputs.	  
-  if ( rpm > rpm_max )
+  
+	if ( rpm > rpm_max )
     rpm_max = rpm;
   
   if (Oilp < OilP_LOW_Alarm )
   {
-	  if (!(REDledAlarm & (1<<MENU_OP)))
-		EncoderCnt = MENU_OP;
+	  if (!(REDledAlarm & (1<<MENU_OilP)))
+			EncoderCnt = MENU_OilP;
 	
-	  REDledAlarm |= 1<<MENU_OP;
+	  REDledAlarm |= 1<<MENU_OilP;
       
   }
   else 
-	  REDledAlarm &= ~(1<<MENU_OP);
+	  REDledAlarm &= ~(1<<MENU_OilP);
   
    // FP alarm last so that it has highest priority if multiple alarms come at the same time 
   if (Fuelp > FuelP_HIGH_Alarm  || Fuelp < FuelP_LOW_Alarm )
   {
-	  if (!(REDledAlarm & (1<<MENU_FP)))
-		EncoderCnt = MENU_FP;
+	  if (!(REDledAlarm & (1<<MENU_FuelP)))
+			EncoderCnt = MENU_FuelP;
 	
-	  REDledAlarm |= 1<<MENU_FP;
+	  REDledAlarm |= 1<<MENU_FuelP;
       
   }
   else 
-	  REDledAlarm &= ~(1<<MENU_FP);
-  
-
-
+	  REDledAlarm &= ~(1<<MENU_FuelP);
   
   // switch back to 5v ref for next time around
   // 5V rail, is used since the NTCs are powered through 1K resistors from the same 5V.
@@ -410,25 +421,9 @@ re_eval:
 
   switch (EncoderCnt)		// for display items
   {
-
-#ifdef jhjvjjhj	  
-    case MENU_V_Bus:
-      if (timeout == 0 )			// So that the voltage display times out and switches back to primary oil temp
-        timeout = seconds +TIMEOUT_TIME;  	
-        
-    if (REDledAlarm & 1<<MENU_V_Bus && digitalRead(LED1_PIN) )	// blink the LCD in unison with the LED
-		lcd.noDisplay();
-	
-      lcd.print("Voltage ");
-      lcd.setCursor ( 0, LINE2 );
-      lcd.print( Vbus_Volt ) ;
-      lcd.print(" V  ");
-      
-   
-      break;
-#endif
+					
     case MENU_RPM:
-	  if (timeout == 0 )			
+			if (timeout == 0 )			
         timeout = seconds +TIMEOUT_TIME;  
 	
       lcd.print("  RPM   ");
@@ -437,33 +432,33 @@ re_eval:
       lcd.print( (short) rpm );
       lcd.print("     ");
       break;
-	  
-	case  MENU_OP:
-	  if (timeout == 0 )			
-        timeout = seconds +TIMEOUT_TIME; 
-	
-	  if (REDledAlarm & 1<<MENU_OP && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
-		  lcd.noDisplay();
+	 
+			
+		case  MENU_OilP:  
+			if (timeout == 0 )			
+					timeout = seconds +TIMEOUT_TIME; 
+		
+			if (REDledAlarm & 1<<MENU_OilP && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
+				lcd.noDisplay();
 
 
-	  lcd.print("Oil  psi");
+			lcd.print("Oil  psi");
       lcd.setCursor ( 0, LINE2 );
       lcd.print( Oilp );
       lcd.print("       ");
       break;  
 	  
-	case  MENU_FP:
-	  if (timeout == 0 )			
-        timeout = seconds +TIMEOUT_TIME; 
-	
-	  if (REDledAlarm & 1<<MENU_FP && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
-		  lcd.noDisplay();
+		case  MENU_FuelP:
+			if (timeout == 0 )			
+				timeout = seconds +TIMEOUT_TIME; 
+		
+			if (REDledAlarm & 1<<MENU_FuelP && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
+				lcd.noDisplay();
 
-
-	   lcd.print("Fuel psi");
-      lcd.setCursor ( 0, LINE2 );
-      lcd.print( Fuelp );
-      lcd.print("       ");
+				lcd.print("Fuel psi");
+				lcd.setCursor ( 0, LINE2 );
+				lcd.print( Fuelp );
+				lcd.print("       ");
       break;
 
 
@@ -475,92 +470,83 @@ re_eval:
       static int curr_reading ;
       char trend = ' ';
       
-      CheckToggleMetric();
-
       if (ShortPressCnt != PrevShortPressCnt)   // entering setup
       {
         disp_Delta = !disp_Delta;
       }
+			
+			CheckToggleMetric(); // only check when oil temps are displayed
+
       
       if (seconds % TrendTime == 0)
       {
         prev_reading = curr_reading;
-        curr_reading = (int) temp_3 *10 ;      // Trend must be taken from the 3rd probe that's immersed in oil for fast response
+        curr_reading = (int) temp_3C *10 ;      // Trend must be taken from the 3rd probe that's immersed in oil for fast response
       }
       
       if (curr_reading > prev_reading+TrendHysteresis) 
-          trend =UpSym;
+        trend =UpSym;
       else if (curr_reading < prev_reading-TrendHysteresis)
         trend = DownSym;
-        
-    
-        
-      if (MetricDisplay)
-      {
-         units = CEL;
-      }
-      else
-      {
-        units = FAR;
-        temp_1 = CtoF( temp_1);
-        temp_2 = CtoF( temp_2);
-        temp_3 = CtoF( temp_3);
-      }
-      
-	  if (REDledAlarm & 1<<MENU_OIL_NTC && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
-		lcd.noDisplay();
-      
-	  if (disp_Delta == false )
-      {
-        lcd.print(temp_1,1);
-        lcdPrintUnits(LINE1,DegSym,(char *)units);
-        
-        lcd.setCursor ( 0, LINE2 );
-        lcd.print(temp_2,1);
-        lcdPrintUnits(LINE2,DegSym,(char *)units);
-      } 
-      else
-      {  
-        lcd.print(temp_3,1);
-        lcd.print(trend);
-        lcdPrintUnits(0,DegSym,(char *) units); 
-          
-        lcd.setCursor ( 0, LINE2 );
-        lcd.print(temp_1 - temp_2,1);
-        lcdPrintUnits(LINE2,DeltaSym,(char *)units);
-	  }
-	  
-      break;
-
+       
+			if (REDledAlarm & 1<<MENU_OIL_NTC && digitalRead(LED1_PIN) )// blink the LCD in unison with the LED
+				lcd.noDisplay();
+				
+			if (disp_Delta == false )
+			{
+				lcd.print(t_1,1);
+				lcdPrintUnits(LINE1,DegSym,(char *)units);
+				
+				lcd.setCursor ( 0, LINE2 );
+				lcd.print(t_2,1);
+				lcdPrintUnits(LINE2,DegSym,(char *)units);
+			} 
+			else
+			{  
+				lcd.print(t_3,1);
+				lcd.print(trend);
+				lcdPrintUnits(0,DegSym,(char *) units); 
+					
+				lcd.setCursor ( 0, LINE2 );
+				lcd.print(t_1 - t_2,1);
+				lcdPrintUnits(LINE2,DeltaSym,(char *)units);
+			}
+			
+			break;
     }
-	case MENU_TIME:
-	{
-		if (timeout == 0 )
-			timeout = seconds + TIMEOUT_TIME;
 		
-		lcd.print("Up Time ");
-		lcd.setCursor ( 0, LINE2 );
-		lcd.print( hours);
-		lcd.print(":");
-		if (minutes %60 <10)
-			lcd.print( "0");
-		lcd.print( minutes%60);
-		lcd.print(":");
-		if (seconds%60 <10)
-			lcd.print( "0");
-		lcd.print(seconds%60);
-		lcd.print("     ");
-	
-	}
-	break;
+		case MENU_TIME:
+		{
+			if (timeout == 0 )
+				timeout = seconds + TIMEOUT_TIME;
+			
+			lcd.print("Up Time ");
+			lcd.setCursor ( 0, LINE2 );
+			lcd.print( hours);
+			lcd.print(":");
+			
+			if (minutes %60 <10)
+				lcd.print( "0");
+			
+			lcd.print( minutes%60);
+			lcd.print(":");
+			
+			if (seconds%60 <10)
+				lcd.print( "0");
+			
+			lcd.print(seconds%60);
+			lcd.print("     ");
+		
+		}
+		break;
 			  
-   default: // this is here in case the Menu items are contineous, i.e commented out items 
-      // go in the same direction as last knob input from user and re-evaluate again.
-      // will wrap around in re_eval;
-      EncoderCnt += EncoderDirection;
-      goto re_eval;
+		default: // this is here in case the Menu items are contineous, i.e commented out items 
+				// go in the same direction as last knob input from user and re-evaluate again.
+				// will wrap around in re_eval;
+				EncoderCnt += EncoderDirection;
+				goto re_eval;
       break;
-  }
+  } // end of switch
 
 
   if (PrevEncCnt != EncoderCnt )	// if user switched display during timeout start timeout time afresh next round
@@ -568,59 +554,70 @@ re_eval:
     
   
 #ifdef WITH_SD_CARD  
-      // store readings every SD_RECORD_PER seconds in SD card
-      if (t % (SD_RECORD_PER * 1000) < UPDATE_PER  && dataFile  )
-      {
+  // store readings every SD_RECORD_PER seconds in SD card
+  if (t % (SD_RECORD_PER * 1000) < UPDATE_PER  && dataFile  )
+  {
 		dataFile.print( hours);
 		dataFile.print(':');
-        dataFile.print( minutes%60);
+		
+		if (minutes%60 <10)
+			dataFile.print( "0");
+    
+		dataFile.print( minutes%60);
 		dataFile.print(':');
+		
+		if (seconds%60 <10)
+			dataFile.print( "0");
+		
 		dataFile.print( seconds%60);
-		dataFile.print(',');
-		dataFile.print(Oilp);
-		dataFile.print(",");
-        dataFile.print(temp_1);
-        dataFile.print(',');
-        dataFile.print (temp_2);
-        dataFile.print(',');
-        dataFile.print (temp_3);
-        dataFile.print(',');
-        dataFile.print(units);
-		dataFile.print(',');
+		
+		dataFile.print('\t');
 		dataFile.print((short) rpm);
-		dataFile.print(",");
-		dataFile.println(Fuelp);
-        dataFile.flush();
-      }
+		dataFile.print("\t");
+		dataFile.print(Fuelp);
+		dataFile.print('\t');
+		dataFile.print(Oilp);
+		dataFile.print("\t");
+		dataFile.print(t_1);
+		dataFile.print('\t');
+		dataFile.print (t_2);
+		dataFile.print('\t');
+		dataFile.print (t_3);
+		dataFile.print('\t');
+		dataFile.println(units);
+    dataFile.flush();
+  }
 #endif 
   
 #ifdef ALARMS_A
   // set the RED alarm led
-	  if (REDledAlarm &&  rpm > 1000 )
-	  {
-	    if (digitalRead(LED1_PIN) )		// make it blink
-	      digitalWrite( LED1_PIN, LOW);
-	    else
-		  digitalWrite( LED1_PIN, HIGH);
-
-	  }
-	  else
+	if (REDledAlarm &&  rpm > 1000 )
+	{
+		if (digitalRead(LED1_PIN) )		// make it blink
+			digitalWrite( LED1_PIN, LOW);
+		else
+			digitalWrite( LED1_PIN, HIGH);
+	}
+	else
 		digitalWrite( LED1_PIN, LOW);
 #endif
+	
 	// at the end of the flight when motor is shut down, record total flight time
 	// Flight is indicted by RPM over 2400 RPM Simple runup will not trigger a flight situation
-	if ( minutes > 10  && rpm < 1000 && rpm_max > 2400)
+	if ( minutes > 10  && rpm < 900 && rpm_max > 2400)		// shutting down after flight
 	{
 #ifdef WITH_SD_CARD  		
 		if ( dataFile  )
 		{
 			dataFile.print( hours);
 			dataFile.print(':');
+			
 			if (minutes%60 <10)
 				dataFile.print("0");
 	
 			dataFile.print( minutes%60);
 			dataFile.print(':');
+			
 			if (seconds%60 <10 )
 				dataFile.print("0");  
 			

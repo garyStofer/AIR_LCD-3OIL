@@ -3,6 +3,7 @@
 #include "BoardPins.h"
 // for serial debug
 #define DEBUG
+#define N_NUMBER "N427GS"
 	
 // see BoardPins.h for pins	
 

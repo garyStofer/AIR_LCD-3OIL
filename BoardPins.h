@@ -23,6 +23,8 @@
 // ADC 5 used for Slave Select on SD card SPI interface
 #define SD_SS_PIN 19	// aka A5
 #define NTC3_ADC    6
-#define VBUS_ADC 	7      // ADC7
+
+#define OP_ADC 7 				 // Mutaully exclusive -- choose one 	
+
 // LiquidCrystal lcd(9, 8, 6, 7, 4, 5); // in 4 bit interface mode
 
